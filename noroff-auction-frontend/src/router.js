@@ -1,48 +1,63 @@
-import { isLoggedIn } from "./store.js";
-import { renderNav } from "./ui/layout.js";
+import { requireAuth, requireGuest } from "./utils/authGuard.js";
 
 function parseRoute() {
   const hash = location.hash.slice(1) || "/listings";
   const [path, qs] = hash.split("?");
-  const query = new URLSearchParams(qs || "");
-  return { path, query };
+  return {
+    path,
+    query: new URLSearchParams(qs || "")
+  };
 }
 
 export async function router() {
   const { path, query } = parseRoute();
   const page = document.querySelector("#page");
-  renderNav();
 
-  const authOnly = ["/profile", "/create"];
-  if (authOnly.includes(path) && !isLoggedIn()) {
-    location.hash = "#/login";
-    return;
-  }
+  const routes = {
+    "/listings": {
+      page: "./ui/pages/listings.js"
+    },
+
+    "/login": {
+      page: "./ui/pages/login.js",
+      guard: requireGuest
+    },
+
+    "/register": {
+      page: "./ui/pages/register.js",
+      guard: requireGuest
+    },
+
+    "/profile": {
+      page: "./ui/pages/profile.js",
+      guard: requireAuth
+    },
+
+    "/create": {
+      page: "./ui/pages/createListing.js",
+      guard: requireAuth
+    }
+  };
 
   if (path.startsWith("/listing/")) {
     const id = path.split("/")[2];
-    const { render } = await import("./ui/pages/listingDetails.js");
-    page.innerHTML = await render({ id });
+    const mod = await import("./ui/pages/listingDetails.js");
+    page.innerHTML = await mod.render({ id });
     return;
   }
 
   if (path.startsWith("/edit/")) {
-    if (!isLoggedIn()) return (location.hash = "#/login");
+    if (!requireAuth()) return;
     const id = path.split("/")[2];
-    const { render } = await import("./ui/pages/editListing.js");
-    page.innerHTML = await render({ id });
+    const mod = await import("./ui/pages/editListing.js");
+    page.innerHTML = await mod.render({ id });
     return;
   }
 
-  const routes = {
-    "/listings": "./ui/pages/listings.js",
-    "/login": "./ui/pages/login.js",
-    "/register": "./ui/pages/register.js",
-    "/profile": "./ui/pages/profile.js",
-    "/create": "./ui/pages/createListing.js",
-  };
+  const route = routes[path] || routes["/listings"];
 
-  const modPath = routes[path] || routes["/listings"];
-  const { render } = await import(modPath);
-  page.innerHTML = await render({ query });
+  if (route.guard && !route.guard()) return;
+
+  const mod = await import(route.page);
+  page.innerHTML = await mod.render({ query });
 }

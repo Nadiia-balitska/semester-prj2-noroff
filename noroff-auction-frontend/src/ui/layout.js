@@ -42,7 +42,7 @@ export function renderNav() {
   const nav = document.querySelector("#nav");
   const { user } = loadStore();
 
-  if (!user) {
+  if (!user?.name) {
     nav.innerHTML = `
       <a href="#/listings" class="px-3 py-2 hover:bg-slate-100 rounded">Listings</a>
       <a href="#/login" class="px-3 py-2 hover:bg-slate-100 rounded">Login</a>

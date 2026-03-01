@@ -9,7 +9,7 @@ export function render() {
 
       <form id="registerForm" class="space-y-3">
 
-        <input id="name" placeholder="Name"
+        <input id="username" placeholder="Name"
           class="w-full border rounded-xl px-3 py-2"/>
 
         <input id="email" placeholder="Email (@stud.noroff.no required)"
@@ -42,12 +42,14 @@ function bindEvents() {
     .addEventListener("submit", async e => {
       e.preventDefault();
 
+      
+      
       const error = document.querySelector("#error");
       error.textContent = "";
 
       try {
         await register({
-          name: name.value,
+          name: username.value,
           email: email.value,
           password: password.value,
           avatarUrl: avatar.value,
