@@ -56,9 +56,12 @@ export async function render({ id }) {
             ? `<div class="text-sm text-slate-600">You cannot bid on your own listing.</div>`
             : `
               <form id="bidForm" class="flex gap-2 items-center">
-                <input id="bidAmount" type="number" min="1" step="1"
-                  placeholder="Bid amount"
-                  class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input id="bidAmount" name="amount" type="number" min="1" step="1"
+                required
+  inputmode="numeric"
+  placeholder="Bid amount"
+  class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+
 
                 <button id="bidBtn" type="submit"
                   class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">
@@ -83,18 +86,22 @@ function bindBidHandlers(id, item, loggedIn, isOwner) {
 
   const page = document.querySelector("#page");
   const form = document.querySelector("#bidForm");
-  const input = document.querySelector("#bidAmount");
-  const btn = document.querySelector("#bidBtn");
+  if (!page || !form) return;
+
+  const input = form.elements.amount; 
+  const btn = form.querySelector("#bidBtn");
   const errEl = document.querySelector("#bidError");
 
-  if (!page || !form || !input || !btn || !errEl) return;
+  if (!input || !btn || !errEl) return;
 
   const handleBid = async () => {
     errEl.textContent = "";
 
     try {
-      const amount = Number(input.value);
-      if (!Number.isFinite(amount) || amount <= 0) {
+      const raw = String(input.value ?? "").trim().replace(",", ".");
+      const amount = Number(raw);
+
+      if (!raw || !Number.isFinite(amount) || amount <= 0) {
         throw new Error("Please enter a valid bid amount.");
       }
 
@@ -107,7 +114,6 @@ function bindBidHandlers(id, item, loggedIn, isOwner) {
       await bidOnListing(id, amount);
 
       showToast("Bid placed successfully!", "success");
-
       location.hash = `#/listing/${id}`;
     } catch (e) {
       console.error(e);
@@ -131,3 +137,4 @@ function bindBidHandlers(id, item, loggedIn, isOwner) {
     }
   });
 }
+
