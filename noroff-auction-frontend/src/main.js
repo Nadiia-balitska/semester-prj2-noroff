@@ -3,6 +3,6 @@ import { renderLayout } from "./ui/layout.js";
 import { router } from "./router.js";
 
 renderLayout();
-
-window.addEventListener("load", router);
+router();
 window.addEventListener("hashchange", router);
+window.addEventListener("load", router);
