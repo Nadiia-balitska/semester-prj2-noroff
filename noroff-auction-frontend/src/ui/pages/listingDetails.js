@@ -55,20 +55,19 @@ export async function render({ id }) {
             : isOwner
             ? `<div class="text-sm text-slate-600">You cannot bid on your own listing.</div>`
             : `
-              <form id="bidForm" class="flex gap-2 items-center">
-                <input id="bidAmount" name="amount" type="number" min="1" step="1"
-                required
-  inputmode="numeric"
-  placeholder="Bid amount"
-  class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <form id="bidForm" data-listing-id="${id}" class="flex gap-2 items-center">
+  <input name="amount" type="number" min="1" step="1" required
+    inputmode="numeric"
+    placeholder="Bid amount"
+    class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
 
+  <button id="bidBtn" type="submit"
+    class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">
+    Place Bid
+  </button>
+</form>
+<p id="bidError" class="text-sm text-rose-600"></p>
 
-                <button id="bidBtn" type="submit"
-                  class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">
-                  Place Bid
-                </button>
-              </form>
-              <p id="bidError" class="text-sm text-rose-600"></p>
             `
         }
       </div>
@@ -84,22 +83,22 @@ export async function render({ id }) {
 function bindBidHandlers(id, item, loggedIn, isOwner) {
   if (!loggedIn || isOwner) return;
 
-  const page = document.querySelector("#page");
   const form = document.querySelector("#bidForm");
-  if (!page || !form) return;
-
-  const input = form.elements.amount; 
-  const btn = form.querySelector("#bidBtn");
   const errEl = document.querySelector("#bidError");
+  if (!form || !errEl) return;
 
-  if (!input || !btn || !errEl) return;
+  const btn = form.querySelector("#bidBtn");
 
-  const handleBid = async () => {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
     errEl.textContent = "";
 
     try {
-      const raw = String(input.value ?? "").trim().replace(",", ".");
+      const fd = new FormData(e.currentTarget);
+      const raw = String(fd.get("amount") ?? "").trim().replace(",", ".");
       const amount = Number(raw);
+
+      console.log("BID RAW:", raw, "BID AMOUNT:", amount); 
 
       if (!raw || !Number.isFinite(amount) || amount <= 0) {
         throw new Error("Please enter a valid bid amount.");
@@ -114,6 +113,7 @@ function bindBidHandlers(id, item, loggedIn, isOwner) {
       await bidOnListing(id, amount);
 
       showToast("Bid placed successfully!", "success");
+
       location.hash = `#/listing/${id}`;
     } catch (e) {
       console.error(e);
@@ -121,19 +121,6 @@ function bindBidHandlers(id, item, loggedIn, isOwner) {
       showToast(e.message || "Bid failed.", "error");
     } finally {
       setButtonLoading(btn, false);
-    }
-  };
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    handleBid();
-  });
-
-  page.addEventListener("click", (e) => {
-    const target = e.target;
-    if (target && target.id === "bidBtn") {
-      e.preventDefault();
-      handleBid();
     }
   });
 }
