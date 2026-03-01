@@ -1,7 +1,6 @@
 import { getListing, bidOnListing } from "../../api/listings.js";
-import { loadStore, saveStore } from "../../store.js";
+import { loadStore } from "../../store.js";
 import { showToast, setButtonLoading } from "../components.js";
-import { renderNav } from "../layout.js";
 
 function bidsTable(bids = []) {
   if (!bids.length) return `<div class="text-sm text-slate-600">No bids yet.</div>`;
@@ -32,58 +31,43 @@ function bidsTable(bids = []) {
 
 export async function render({ id }) {
   const out = await getListing(id);
-  const item = out?.data;
+  const item = out.data;
 
   const { user } = loadStore();
   const loggedIn = Boolean(user?.name);
   const isOwner = loggedIn && item.seller?.name === user.name;
 
-  const img = item.media?.[0]?.url;
-
-  queueMicrotask(() => bindBid({ id, item, isOwner, loggedIn }));
+  queueMicrotask(() => bindBidHandlers(id, item, loggedIn, isOwner));
 
   return `
     <section class="space-y-6">
-      <div class="grid lg:grid-cols-2 gap-6">
-        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div class="aspect-[4/3] bg-slate-100">
-            ${
-              img
-                ? `<img src="${img}" alt="${item.media?.[0]?.alt ?? item.title}" class="w-full h-full object-cover" />`
-                : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-sm">No image</div>`
-            }
-          </div>
-        </div>
+      <div class="space-y-2">
+        <h1 class="text-2xl font-semibold">${item.title}</h1>
+        <p class="text-slate-600">${item.description ?? ""}</p>
+        <div class="text-sm text-slate-500">Seller: <b class="text-slate-800">${item.seller?.name ?? "—"}</b></div>
+        <div class="text-sm text-slate-500">Ends: <b class="text-slate-800">${new Date(item.endsAt).toLocaleString()}</b></div>
+      </div>
 
-        <div class="space-y-3">
-          <h1 class="text-2xl font-semibold">${item.title}</h1>
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+        ${
+          !loggedIn
+            ? `<div class="text-sm text-slate-600">You must be logged in to place bids.</div>`
+            : isOwner
+            ? `<div class="text-sm text-slate-600">You cannot bid on your own listing.</div>`
+            : `
+              <form id="bidForm" class="flex gap-2 items-center">
+                <input id="bidAmount" type="number" min="1" step="1"
+                  placeholder="Bid amount"
+                  class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
 
-          <div class="text-sm text-slate-600">${item.description ?? ""}</div>
-
-          <div class="text-sm">
-            <div class="text-slate-500">Seller: <span class="text-slate-800 font-medium">${item.seller?.name ?? "—"}</span></div>
-            <div class="text-slate-500">Ends: <span class="text-slate-800 font-medium">${new Date(item.endsAt).toLocaleString()}</span></div>
-          </div>
-
-          <div class="pt-2">
-            ${
-              !loggedIn
-                ? `<div class="text-sm text-slate-600">You must be logged in to place bids.</div>`
-                : isOwner
-                ? `<div class="text-sm text-slate-600">You cannot bid on your own listing.</div>`
-                : `
-                  <form id="bidForm" class="flex gap-2 items-center" onsubmit="return false;">
-                    <input id="bidAmount" type="number" min="1" step="1" placeholder="Bid amount"
-                      class="w-40 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                    <button id="bidBtn" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">
-                      Place Bid
-                    </button>
-                  </form>
-                `
-            }
-            <div id="bidMsg" class="mt-2 text-sm text-rose-600"></div>
-          </div>
-        </div>
+                <button id="bidBtn" type="submit"
+                  class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">
+                  Place Bid
+                </button>
+              </form>
+              <p id="bidError" class="text-sm text-rose-600"></p>
+            `
+        }
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -94,28 +78,22 @@ export async function render({ id }) {
   `;
 }
 
-function bindBid({ id, item, isOwner, loggedIn }) {
+function bindBidHandlers(id, item, loggedIn, isOwner) {
   if (!loggedIn || isOwner) return;
 
+  const page = document.querySelector("#page");
   const form = document.querySelector("#bidForm");
-  const btn = document.querySelector("#bidBtn");
   const input = document.querySelector("#bidAmount");
-  const msg = document.querySelector("#bidMsg");
-  const bidsBox = document.querySelector("#bidsBox");
+  const btn = document.querySelector("#bidBtn");
+  const errEl = document.querySelector("#bidError");
 
-  if (!form || !btn || !input || !msg) return;
+  if (!page || !form || !input || !btn || !errEl) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-  });
-
-  btn.addEventListener("click", async (e) => {
-    e.preventDefault();
-    msg.textContent = "";
+  const handleBid = async () => {
+    errEl.textContent = "";
 
     try {
       const amount = Number(input.value);
-
       if (!Number.isFinite(amount) || amount <= 0) {
         throw new Error("Please enter a valid bid amount.");
       }
@@ -126,24 +104,30 @@ function bindBid({ id, item, isOwner, loggedIn }) {
       }
 
       setButtonLoading(btn, true);
-
       await bidOnListing(id, amount);
 
       showToast("Bid placed successfully!", "success");
 
-      const fresh = await getListing(id);
-      const freshItem = fresh.data;
-
-      bidsBox.innerHTML = bidsTable(freshItem.bids ?? []);
-      input.value = "";
-
-      renderNav();
-    } catch (err) {
-      console.error(err);
-      msg.textContent = err.message || "Bid failed.";
-      showToast(err.message || "Bid failed.", "error");
+      location.hash = `#/listing/${id}`;
+    } catch (e) {
+      console.error(e);
+      errEl.textContent = e.message || "Bid failed.";
+      showToast(e.message || "Bid failed.", "error");
     } finally {
       setButtonLoading(btn, false);
+    }
+  };
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleBid();
+  });
+
+  page.addEventListener("click", (e) => {
+    const target = e.target;
+    if (target && target.id === "bidBtn") {
+      e.preventDefault();
+      handleBid();
     }
   });
 }
