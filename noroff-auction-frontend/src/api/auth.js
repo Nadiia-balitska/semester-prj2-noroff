@@ -1,5 +1,6 @@
 import { request, ensureApiKey } from "./client.js";
 import { saveStore, clearStore } from "../store.js";
+import { router } from "../router.js";
 
 export async function register({ name, email, password, bio, avatarUrl, bannerUrl }) {
   if (!email.endsWith("@stud.noroff.no")) {
@@ -30,7 +31,13 @@ export async function login({ email, password }) {
   return out;
 }
 
+import { saveStore } from "../store.js";
+
 export function logout() {
-  clearStore();
+  localStorage.removeItem("store");
+  saveStore({ token: null, user: null, apiKey: null });
   location.hash = "#/listings";
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+  router();
+  
 }
