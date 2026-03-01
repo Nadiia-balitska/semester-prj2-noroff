@@ -3,7 +3,7 @@ import { saveStore, clearStore } from "../store.js";
 
 export async function register({ name, email, password, bio, avatarUrl, bannerUrl }) {
   if (!email.endsWith("@stud.noroff.no")) {
-    throw new Error("Реєстрація дозволена лише для email @stud.noroff.no");
+    throw new Error("Registration allow for email @stud.noroff.no");
   }
   const payload = {
     name,
@@ -22,11 +22,10 @@ export async function login({ email, password }) {
   const token = out?.data?.accessToken || out?.data?.token || out?.accessToken;
   const user = out?.data;
 
-  if (!token || !user?.name) throw new Error("Неочікувана відповідь логіну (нема токена/профілю).");
+  if (!token || !user?.name) throw new Error("No tokin");
 
   saveStore({ token, user: { name: user.name, email: user.email, credits: user.credits ?? 0, avatar: user.avatar, banner: user.banner } });
 
-  await ensureApiKey();
 
   return out;
 }
