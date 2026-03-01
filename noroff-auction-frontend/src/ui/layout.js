@@ -75,7 +75,6 @@ export function renderNav() {
   nav.querySelector("#logoutBtn").onclick = async () => {
     const { logout } = await import("../api/auth.js");
     logout();
-    document.querySelector("#globalSearch").value = "";
     renderNav();
   };
 }
